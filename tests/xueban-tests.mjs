@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const source=await readFile(new URL('../extension/llm.js',import.meta.url),'utf8');
+const {endpointURL,requestSpec,parseEvent,ask}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const compatible={endpoint:'https://example.com/v1/',provider:'compatible'};
+assert.equal(endpointURL(compatible.endpoint,'compatible').href,'https://example.com/v1/chat/completions');
+assert.throws(()=>endpointURL('http://external.test/v1','compatible'));
+assert.throws(()=>endpointURL('https://user:secret@example.com/v1','compatible'));
+assert.equal(endpointURL('http://localhost:8080/v1','compatible').origin,'http://localhost:8080');
+const image='data:image/png;base64,YWJj';
+const messages=[{role:'user',content:[{type:'text',text:'图片是什么'},{type:'image_url',image_url:{url:image}}]}];
+const anthropic={endpoint:'https://example.com/v1',provider:'anthropic'};
+const a=requestSpec(anthropic,'test-key',messages,'vision');
+assert.equal(a.body.messages[0].content[1].source.data,'YWJj');
+assert.equal(a.headers['x-api-key'],'test-key');
+assert.equal(a.body.messages[0].content[0].text,'图片是什么');
+assert.equal(requestSpec(compatible,'test-key',messages,'vision').body.messages[1].content[1].image_url.url,image);
+assert.equal(parseEvent('[DONE]','compatible').done,true);
+assert.throws(()=>parseEvent('{"error":{"message":"额度不足"}}','compatible'),/额度不足/);
+const realFetch=globalThis.fetch;
+try{
+  const bytes=new TextEncoder().encode('data: {"choices":[{"delta":{"content":"你好"}}]}\r\n\r\ndata: {"choices":[{"delta":{"content":"，学习者"}}]}\n\ndata: [DONE]\n\n');
+  globalThis.fetch=async()=>new Response(new ReadableStream({start(c){for(let i=0;i<bytes.length;i+=3)c.enqueue(bytes.slice(i,i+3));c.close();}}),{headers:{'content-type':'text/event-stream'}});
+  let result='';await ask(compatible,'test-key',messages,'vision',new AbortController().signal,t=>result+=t);assert.equal(result,'你好，学习者');
+  globalThis.fetch=async()=>new Response('data: {"type":"content_block_delta","delta":{"text":"图片说明"}}\n\ndata: {"type":"message_stop"}\n\n',{headers:{'content-type':'text/event-stream'}});
+  result='';await ask(anthropic,'test-key',messages,'vision',new AbortController().signal,t=>result+=t);assert.equal(result,'图片说明');
+  globalThis.fetch=async()=>new Response('{}',{status:401});await assert.rejects(()=>ask(compatible,'bad',messages,'vision',null,()=>{}),/API Key/);
+  globalThis.fetch=async()=>new Response('data: [DONE]\n\n',{headers:{'content-type':'text/event-stream'}});await assert.rejects(()=>ask(compatible,'key',messages,'vision',null,()=>{}),/空回答/);
+  globalThis.fetch=async()=>new Response(JSON.stringify({choices:[{message:{content:'普通 JSON 回答'}}]}),{headers:{'content-type':'application/json'}});result='';await ask(compatible,'key',messages,'vision',null,t=>result+=t);assert.equal(result,'普通 JSON 回答');
+}finally{globalThis.fetch=realFetch;}
+const manifest=JSON.parse(await readFile(new URL('../extension/manifest.json',import.meta.url),'utf8'));
+assert.equal(manifest.manifest_version,3);assert.ok(!manifest.host_permissions);assert.equal(manifest.side_panel.default_path,'panel.html');
+console.log('通过：地址校验、两种协议的图片消息、跨 UTF-8 字节流分块、Anthropic 流、鉴权错误、空回答、JSON 回答与权限配置。');

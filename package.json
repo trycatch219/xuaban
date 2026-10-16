@@ -1,0 +1,26 @@
+{
+  "name": "xueban-browser-extension",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "带网页图文上下文和来源引用的浏览器学习问答插件",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "test": "node scripts/test.mjs",
+    "build": "node scripts/build.mjs",
+    "package": "node scripts/package.mjs",
+    "preview": "node scripts/preview.cjs",
+    "preview:build": "node scripts/preview-build.mjs",
+    "vendor:sync": "node scripts/vendor.mjs"
+  },
+  "devDependencies": {
+    "dompurify": "3.4.17",
+    "jsdom": "30.1.2",
+    "katex": "0.19.0",
+    "marked": "18.1.1"
+  }
+}

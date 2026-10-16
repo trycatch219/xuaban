@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "学伴 · 网页学习助手",
+  "version": "0.4.0",
+  "description": "选中文字、图片或视频画面，在侧栏中向自己的模型提问。",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "contextMenus",
+    "sidePanel"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "打开学伴并启用当前网页"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "options_page": "panel.html#settings"
+}
